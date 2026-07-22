@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CLASS SCHEDULE AND ACTIVITIES</title>
+    <style>
+        :root { 
+            --bulsu-maroon: #7b1113; 
+            --bulsu-maroon-dark: #5a0c0e;
+            --bulsu-gold: #d4af37; 
+            --bulsu-gold-bright: #e5b73b;
+            --bg: #fdf5f5; 
+        }
+        body { font-family: system-ui, sans-serif; background: var(--bg); margin: 0; padding: 0; color: #333; }
+        
+        /* ✨ The New Notification Banner ✨ */
+        .notification-banner {
+            position: fixed;
+            top: -100px; /* Hidden above the screen */
+            left: 50%;
+            transform: translateX(-50%);
+            background: linear-gradient(135deg, var(--bulsu-maroon), var(--bulsu-maroon-dark));
+            color: var(--bulsu-gold-bright);
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-weight: 800;
+            font-size: 1.1em;
+            box-shadow: 0 10px 25px rgba(123, 17, 19, 0.4);
+            transition: top 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 2px solid var(--bulsu-gold);
+            white-space: nowrap;
+        }
+        .notification-banner.show {
+            top: 20px; /* Slides down into view */
+        }
+
+        header { background: linear-gradient(135deg, var(--bulsu-maroon), var(--bulsu-maroon-dark)); color: white; padding: 30px 20px; text-align: center; border-bottom: 6px solid var(--bulsu-gold); box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        h1 { margin: 0; font-size: 2em; letter-spacing: 1px; color: var(--bulsu-gold-bright); text-shadow: 1px 1px 3px rgba(0,0,0,0.3);}
+        p.subtitle { margin: 8px 0 0 0; color: white; font-size: 1.05em; font-weight: 500; opacity: 0.95; }
+        
+        .container { max-width: 850px; margin: 40px auto; padding: 0 20px; }
+        
+        .filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 30px; justify-content: center; }
+        .filter-btn { background: white; border: 2px solid var(--bulsu-maroon); color: var(--bulsu-maroon); padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: 700; transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); font-size: 0.95em; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .filter-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(123, 17, 19, 0.2); }
+        .filter-btn.active { background: var(--bulsu-maroon); color: var(--bulsu-gold-bright); border-color: var(--bulsu-maroon); box-shadow: 0 4px 10px rgba(123, 17, 19, 0.3);}
+        
+        .task-list { display: flex; flex-direction: column; gap: 20px; }
+        .task-card { background: white; border-left: 6px solid var(--bulsu-gold); padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(123, 17, 19, 0.06); display: flex; justify-content: space-between; align-items: flex-start; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .task-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(123, 17, 19, 0.12); }
+        .task-info { flex: 1; padding-right: 25px; }
+        .task-info h3 { margin: 0 0 12px 0; color: var(--bulsu-maroon); font-size: 1.3em; border-bottom: 2px solid #fdf5f5; padding-bottom: 8px;}
+        .task-info pre { margin: 0; white-space: pre-wrap; font-family: inherit; font-size: 1em; line-height: 1.6; color: #444; }
+        .task-date { text-align: right; min-width: 140px; }
+        .task-date .badge { background: #fdf5f5; padding: 8px 14px; border-radius: 8px; font-weight: 800; font-size: 0.95em; display: inline-block; color: #222; margin-bottom: 8px; border: 1px solid #f4e4e4; }
+        .task-date small { display: block; font-weight: 800; font-size: 0.9em; color: var(--bulsu-maroon); text-transform: uppercase; letter-spacing: 0.5px;}
+        
+        .urgent { border-left-color: #d32f2f; background: #fffcfc; }
+        .urgent .task-date .badge { background: #feebeb; border-color: #fbcbcb; color: #d32f2f; }
+        .urgent .task-date small { color: #d32f2f; }
+    </style>
+</head>
+<body>
+
+    <!-- The Notification Banner Element -->
+    <div id="updateNotification" class="notification-banner">
+        🔔 ✨ New Announcement from Ashley!
+    </div>
+
+    <header>
+        <h1>📅 CLASS SCHEDULE AND ACTIVITIES</h1>
+        <p class="subtitle">Live Updates from your PIO</p>
+    </header>
+
+    <div class="container">
+        <div class="filters" id="filterContainer"></div>
+        <div class="task-list" id="tasksContainer">
+            <p style="text-align: center; color: #666; font-size: 1.1em;">Loading schedule...</p>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        // Notice we swapped getDocs for onSnapshot here!
+        import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDuU788zHfYaaCDki93QiszJyDgVkfnJQY",
+            authDomain: "reminders-df09c.firebaseapp.com",
+            projectId: "reminders-df09c",
+            storageBucket: "reminders-df09c.firebasestorage.app",
+            messagingSenderId: "455632640409",
+            appId: "1:455632640409:web:e95b0c7b78ce963ec19b08"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        let allTasks = [];
+        let isInitialLoad = true; // Tracks if the page just opened
+
+        function showNotification() {
+            const notif = document.getElementById('updateNotification');
+            notif.classList.add('show');
+            // Hide it automatically after 5 seconds
+            setTimeout(() => {
+                notif.classList.remove('show');
+            }, 5000);
+        }
+
+        // This is the new Real-Time Listener
+        const q = query(collection(db, "deadlines"), orderBy("date", "asc"));
+        
+        onSnapshot(q, (snapshot) => {
+            // Check if there are new documents added, but ONLY if it's not the very first time the page loads
+            if (!isInitialLoad) {
+                let hasNewTasks = false;
+                snapshot.docChanges().forEach((change) => {
+                    if (change.type === "added") {
+                        hasNewTasks = true;
+                    }
+                });
+                if (hasNewTasks) {
+                    showNotification();
+                }
+            }
+
+            allTasks = [];
+            const subjects = new Set();
+            subjects.add("All Subjects");
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            snapshot.forEach((doc) => {
+                const data = doc.data();
+                
+                let diffDays = null;
+                if (data.date && data.date !== "9999-12-31") {
+                    const [yyyy, mm, dd] = data.date.split('-');
+                    const taskDate = new Date(yyyy, mm - 1, dd);
+                    diffDays = Math.ceil((taskDate - today) / (1000 * 60 * 60 * 24));
+                }
+
+                if (diffDays !== null && diffDays < 0) return; // Hide expired tasks
+
+                allTasks.push(data);
+                if (data.subject) subjects.add(data.subject);
+            });
+
+            // Keep the user on whatever filter button they currently have selected during the refresh
+            const activeBtn = document.querySelector('.filter-btn.active');
+            const currentFilter = activeBtn ? activeBtn.innerText : "All Subjects";
+
+            renderFilters(Array.from(subjects));
+            
+            // Re-apply the active state to the correct button
+            document.querySelectorAll('.filter-btn').forEach(btn => {
+                if(btn.innerText === currentFilter) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            renderTasks(currentFilter);
+            
+            // First load is done, switch the flag so future changes trigger the banner
+            isInitialLoad = false; 
+        }, (error) => {
+            document.getElementById('tasksContainer').innerHTML = `<p style="text-align: center; color: red;">Error connecting to real-time database.</p>`;
+        });
+
+
+        function renderFilters(subjects) {
+            const filterContainer = document.getElementById('filterContainer');
+            filterContainer.innerHTML = '';
+            
+            subjects.forEach(subject => {
+                const btn = document.createElement('button');
+                btn.className = 'filter-btn';
+                btn.innerText = subject;
+                
+                btn.onclick = () => {
+                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderTasks(subject);
+                };
+                filterContainer.appendChild(btn);
+            });
+        }
+
+        function renderTasks(filterSubject) {
+            const container = document.getElementById('tasksContainer');
+            container.innerHTML = '';
+
+            const filteredTasks = filterSubject === "All Subjects" 
+                ? allTasks 
+                : allTasks.filter(t => t.subject === filterSubject);
+
+            if (filteredTasks.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: #666; font-size: 1.1em; padding: 20px;">No upcoming activities. Enjoy your rest! 🎉</p>';
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            filteredTasks.forEach(data => {
+                let diffDays = null;
+                let formattedDate = data.displayDate || data.date; 
+                let statusText = "";
+
+                if (data.date && data.date !== "9999-12-31") {
+                    const [yyyy, mm, dd] = data.date.split('-');
+                    const taskDate = new Date(yyyy, mm - 1, dd);
+                    diffDays = Math.ceil((taskDate - today) / (1000 * 60 * 60 * 24));
+                    
+                    if (diffDays === 0) statusText = "DUE TODAY";
+                    else statusText = `IN ${diffDays} DAYS`;
+                } else {
+                    statusText = "TO BE ANNOUNCED";
+                    formattedDate = "TBA";
+                }
+
+                const card = document.createElement('div');
+                card.className = 'task-card';
+                if (diffDays !== null && diffDays <= 3 && diffDays >= 0) card.classList.add('urgent');
+
+                const safeTask = (data.task || "No details provided").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+                card.innerHTML = `
+                    <div class="task-info">
+                        <h3>${data.subject}</h3>
+                        <pre>${safeTask}</pre>
+                    </div>
+                    <div class="task-date">
+                        <div class="badge">${formattedDate}</div>
+                        <small>${statusText}</small>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+    </script>
+</body>
+</html>
