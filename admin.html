@@ -7,12 +7,28 @@
     <style>
         body { font-family: system-ui, sans-serif; background: #fdf5f5; padding: 20px; color: #333; margin: 0; }
         .container { max-width: 650px; margin: 40px auto; background: white; padding: 35px; border-radius: 16px; box-shadow: 0 10px 25px rgba(123, 17, 19, 0.08); border-top: 8px solid #7b1113; }
-        h2 { color: #7b1113; margin-top: 0; font-size: 1.8em; }
-        textarea { width: 100%; height: 200px; padding: 15px; border: 2px solid #e0e0e0; border-radius: 12px; margin-bottom: 20px; font-family: inherit; font-size: 14px; box-sizing: border-box; transition: border-color 0.3s; }
-        textarea:focus { border-color: #d4af37; outline: none; }
-        button.submit-btn { background: linear-gradient(135deg, #e5b73b, #d4af37); color: #5a0c0e; font-size: 1.1em; font-weight: 800; padding: 14px 24px; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; width: 100%; box-shadow: 0 4px 10px rgba(212, 175, 55, 0.3); }
-        button.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(212, 175, 55, 0.4); }
+        h2 { color: #7b1113; margin-top: 0; font-size: 1.8em; margin-bottom: 20px;}
+        
         .instructions { background: #fff9e6; border-left: 5px solid #d4af37; padding: 15px; border-radius: 8px; font-size: 0.95em; margin-bottom: 25px; color: #555; }
+        
+        /* ✨ New Clean Form Inputs ✨ */
+        .form-group { margin-bottom: 15px; }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            font-family: inherit;
+            font-size: 15px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+            background: #fafafa;
+        }
+        .form-group textarea { height: 160px; resize: vertical; }
+        .form-group input:focus, .form-group textarea:focus { border-color: #d4af37; outline: none; background: white;}
+        
+        button.submit-btn { background: linear-gradient(135deg, #e5b73b, #d4af37); color: #5a0c0e; font-size: 1.1em; font-weight: 800; padding: 14px 24px; border: none; border-radius: 12px; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; width: 100%; box-shadow: 0 4px 10px rgba(212, 175, 55, 0.3); margin-top: 10px;}
+        button.submit-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(212, 175, 55, 0.4); }
         
         /* Dropdown Task Manager Styles */
         .task-manager { margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 20px; }
@@ -32,11 +48,22 @@
 <body>
     <div class="container">
         <h2>✨ Ashley's Paste & Go Go Announcement</h2>
+        
         <div class="instructions">
-            <strong>Auto-Format is ON.</strong><br>
-            Just paste <b>NEW</b> announcements below. You do not need to re-paste old ones; the system remembers them until they expire!
+            <strong>Foolproof Input:</strong> Paste lists of any length. Line breaks are fully supported! No more emojis or brackets required.
         </div>
-        <textarea id="inputText" placeholder="✍🏻CC 103-&#10;[MONDAY 7/27]&#10;• Submission of Declaration form..."></textarea>
+        
+        <!-- The New 3-Box Form -->
+        <div class="form-group">
+            <input type="text" id="subjectInput" placeholder="Subject (e.g., TCWD)">
+        </div>
+        <div class="form-group">
+            <textarea id="taskInput" placeholder="Paste your long announcement or groups here..."></textarea>
+        </div>
+        <div class="form-group">
+            <input type="text" id="dateInput" placeholder="Due Date (e.g., OCT 15 or TBA)">
+        </div>
+
         <button id="submitBtn" class="submit-btn">Send to Class Tracker 🚀</button>
         <p id="status" style="text-align: center; font-weight: bold; margin-top: 15px;"></p>
 
@@ -77,7 +104,6 @@
                     return;
                 }
 
-                // Group the tasks
                 const groupedTasks = {};
                 snapshot.forEach((docSnapshot) => {
                     const data = docSnapshot.data();
@@ -86,7 +112,6 @@
                     groupedTasks[subject].push({ id: docSnapshot.id, ...data });
                 });
 
-                // Create the dropdowns
                 for (const subject in groupedTasks) {
                     const details = document.createElement('details');
                     details.className = 'subject-group';
@@ -102,7 +127,6 @@
                         const div = document.createElement('div');
                         div.className = 'admin-task';
                         
-                        // Grab a small preview of her bullet points so she knows what it is
                         let previewText = (task.task || "").replace(/</g, "&lt;").substring(0, 50);
                         if(task.task && task.task.length > 50) previewText += "...";
 
@@ -134,72 +158,57 @@
         
         loadLiveTasks();
 
+        // ✨ The New Simplified Submission Logic ✨
         document.getElementById('submitBtn').addEventListener('click', async () => {
-            const text = document.getElementById('inputText').value;
+            const subject = document.getElementById('subjectInput').value.trim() || "General";
+            const taskText = document.getElementById('taskInput').value.trim();
+            const dateStr = document.getElementById('dateInput').value.trim() || "TBA";
             const status = document.getElementById('status');
             
+            if (!taskText) {
+                status.style.color = "red";
+                status.innerText = "❌ Please enter an announcement!";
+                return;
+            }
+
             status.style.color = "#333";
-            status.innerText = "Parsing and uploading to database...";
+            status.innerText = "Uploading to database...";
             document.getElementById('submitBtn').disabled = true;
 
-            let tasksToUpload = [];
-            let currentSubject = "General";
-            let currentDateString = "TBA";
-            let currentTaskLines = [];
+            // Figure out the standard date for filtering
+            let standardDate = "9999-12-31"; 
+            let raw = dateStr.toUpperCase();
             
-            const pushTask = () => {
-                if (currentTaskLines.length > 0) {
-                    let standardDate = "9999-12-31"; 
-                    let raw = currentDateString.toUpperCase();
-                    
-                    let slashMatch = raw.match(/(\d{1,2})\/(\d{1,2})/);
-                    if (slashMatch) {
-                        standardDate = `2026-${slashMatch[1].padStart(2,'0')}-${slashMatch[2].padStart(2,'0')}`;
-                    } else {
-                        const months = { JAN:'01', FEB:'02', MAR:'03', APR:'04', MAY:'05', JUN:'06', JUL:'07', AUG:'08', SEP:'09', OCT:'10', NOV:'11', DEC:'12' };
-                        for (let m in months) {
-                            if (raw.includes(m)) {
-                                let dayMatch = raw.match(/\d{1,2}/);
-                                if (dayMatch) standardDate = `2026-${months[m]}-${dayMatch[0].padStart(2,'0')}`;
-                                break;
-                            }
-                        }
+            let slashMatch = raw.match(/(\d{1,2})\/(\d{1,2})/);
+            if (slashMatch) {
+                standardDate = `2026-${slashMatch[1].padStart(2,'0')}-${slashMatch[2].padStart(2,'0')}`;
+            } else {
+                const months = { JAN:'01', FEB:'02', MAR:'03', APR:'04', MAY:'05', JUN:'06', JUL:'07', AUG:'08', SEP:'09', OCT:'10', NOV:'11', DEC:'12' };
+                for (let m in months) {
+                    if (raw.includes(m)) {
+                        let dayMatch = raw.match(/\d{1,2}/);
+                        if (dayMatch) standardDate = `2026-${months[m]}-${dayMatch[0].padStart(2,'0')}`;
+                        break;
                     }
-
-                    tasksToUpload.push({
-                        subject: currentSubject,
-                        task: currentTaskLines.join('\n').trim(),
-                        date: standardDate, 
-                        displayDate: currentDateString 
-                    });
-                    currentTaskLines = [];
-                }
-            };
-
-            const lines = text.split('\n');
-            for (let i = 0; i < lines.length; i++) {
-                let line = lines[i].trim();
-                if (!line) continue;
-                
-                if (line.includes('✍🏻')) {
-                    pushTask();
-                    currentSubject = line.split('✍🏻')[1].replace(/[-:]$/, '').trim(); 
-                } else if (line.startsWith('[') && line.includes(']')) {
-                    pushTask();
-                    currentDateString = line.match(/\[(.*?)\]/)[1].trim(); 
-                } else {
-                    currentTaskLines.push(line);
                 }
             }
-            pushTask(); 
 
             try {
-                for (let t of tasksToUpload) {
-                    await addDoc(collection(db, "deadlines"), t);
-                }
+                await addDoc(collection(db, "deadlines"), {
+                    subject: subject,
+                    task: taskText,
+                    date: standardDate, 
+                    displayDate: dateStr 
+                });
+                
                 status.style.color = "green";
-                status.innerText = `✅ Successfully uploaded ${tasksToUpload.length} activity blocks!`;
-                document.getElementById('inputText').value = ''; 
+                status.innerText = `✅ Successfully uploaded!`;
+                
+                // Clear the inputs so she can paste the next one
+                document.getElementById('subjectInput').value = ''; 
+                document.getElementById('taskInput').value = ''; 
+                document.getElementById('dateInput').value = ''; 
+                
                 loadLiveTasks(); 
             } catch (e) {
                 status.style.color = "red";
